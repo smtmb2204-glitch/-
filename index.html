@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Счётчик калорий</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--text:#1d1d1b;--muted:#77756e;--line:#e6e3da;--accent:#2f9e63;--warn:#d9534f;--track:#e9e6dc;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--card:#222220;--text:#f1efe8;--muted:#9c9a91;--line:#34332f;--accent:#46c17f;--warn:#ef7b77;--track:#33322e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161614;--card:#222220;--text:#f1efe8;--muted:#9c9a91;--line:#34332f;--accent:#46c17f;--warn:#ef7b77;--track:#33322e;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 2px}
+.date{color:var(--muted);font-size:14px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.ring{display:flex;align-items:center;gap:16px}
+.ring svg{flex:none}
+.big{font-size:30px;font-weight:700;line-height:1.1}
+.sub{color:var(--muted);font-size:14px}
+.norm{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--muted)}
+input{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%;min-width:0}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.norm input{width:90px;padding:7px 10px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+.row{display:flex;gap:10px}
+.row>div{flex:1;min-width:0}
+.preview{margin-top:12px;font-size:14px;color:var(--muted);min-height:20px}
+.preview b{color:var(--text)}
+button.add{margin-top:8px;width:100%;border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-weight:600;padding:13px;cursor:pointer}
+button.add:active{opacity:.85}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .n{flex:1;min-width:0}
+.item .n div:first-child{overflow-wrap:anywhere}
+.item .k{font-weight:600;white-space:nowrap}
+.del{border:0;background:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:4px 8px}
+.empty{color:var(--muted);text-align:center;padding:8px 0}
+.head{display:flex;justify-content:space-between;align-items:baseline}
+.link{border:0;background:none;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline}
+.err{color:var(--warn);font-size:13px;min-height:18px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Счётчик калорий</h1>
+  <div class="date" id="date"></div>
+
+  <div class="card">
+    <div class="ring">
+      <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="50" fill="none" stroke="var(--track)" stroke-width="12"/>
+        <circle id="arc" cx="60" cy="60" r="50" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16" transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .4s,stroke .3s"/>
+      </svg>
+      <div>
+        <div class="big"><span id="eaten">0</span> <span class="sub">ккал</span></div>
+        <div class="sub" id="left"></div>
+      </div>
+    </div>
+    <div class="norm">Дневная норма: <input id="norm" type="number" inputmode="numeric" min="500" max="10000" step="50"> ккал</div>
+  </div>
+
+  <div class="card">
+    <label for="food" style="margin-top:0">Продукт</label>
+    <input id="food" list="foods" placeholder="Например, гречка варёная" autocomplete="off">
+    <datalist id="foods"></datalist>
+    <div class="row">
+      <div><label for="grams">Масса, г</label><input id="grams" type="number" inputmode="decimal" min="1" placeholder="150"></div>
+      <div><label for="k100">Ккал на 100 г</label><input id="k100" type="number" inputmode="decimal" min="0" placeholder="—"></div>
+    </div>
+    <div class="preview" id="preview"></div>
+    <div class="err" id="err"></div>
+    <button class="add" id="add">Добавить</button>
+  </div>
+
+  <div class="card">
+    <div class="head"><strong>Съедено сегодня</strong><button class="link" id="clear">Очистить день</button></div>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+const FOODS={"Яблоко":52,"Банан":96,"Апельсин":43,"Груша":57,"Виноград":69,"Клубника":33,"Арбуз":30,"Авокадо":160,"Огурец":15,"Помидор":20,"Морковь":35,"Картофель варёный":82,"Картофель жареный":192,"Капуста белокочанная":27,"Брокколи":34,"Лук репчатый":41,"Гречка варёная":110,"Рис варёный":116,"Овсянка на воде":88,"Макароны варёные":131,"Хлеб белый":242,"Хлеб ржаной":214,"Куриная грудка варёная":137,"Куриная грудка жареная":165,"Курица (бедро)":185,"Говядина варёная":254,"Свинина жареная":320,"Индейка":115,"Колбаса варёная":257,"Сосиски":266,"Лосось":208,"Треска":78,"Тунец консервированный":96,"Яйцо варёное":157,"Яичница":243,"Молоко 2,5%":52,"Кефир 2,5%":53,"Йогурт натуральный":66,"Творог 5%":121,"Творог 9%":159,"Сыр твёрдый":364,"Сметана 20%":206,"Масло сливочное":748,"Масло растительное":899,"Сахар":399,"Мёд":329,"Шоколад молочный":534,"Печенье":417,"Мороженое пломбир":227,"Миндаль":579,"Грецкий орех":654,"Арахис":551,"Пицца":266,"Борщ":49,"Пельмени варёные":275,"Блины":233,"Чипсы":520,"Кола":42,"Щи":31,"Суп куриный с лапшой":45,"Солянка мясная":70,"Рассольник":45,"Гороховый суп":66,"Грибной суп":38,"Уха":46,"Харчо":78,"Чечевичный суп":60,"Куриный бульон":15,"Окрошка на кефире":52,"Котлеты мясные жареные":240,"Котлеты куриные паровые":160,"Тефтели в соусе":150,"Голубцы":100,"Фаршированный перец":100,"Плов с курицей":150,"Плов со свининой":220,"Гуляш говяжий":165,"Бефстроганов":190,"Жаркое с мясом и картофелем":150,"Картофельное пюре на молоке":106,"Картофель запечённый":95,"Драники":190,"Вареники с картошкой":150,"Вареники с творогом":200,"Хинкали":200,"Макароны по-флотски":190,"Лазанья":160,"Курица запечённая":190,"Рыба жареная":170,"Рыба запечённая":130,"Капуста тушёная":75,"Кабачки тушёные":45,"Кабачковая икра":90,"Запеканка картофельная с фаршем":130,"Запеканка творожная":170,"Сырники":220,"Оладьи":230,"Омлет":184,"Каша манная на молоке":98,"Каша рисовая молочная":97,"Каша пшённая на воде":90,"Овсянка на молоке":102,"Винегрет":90,"Салат оливье":190,"Салат цезарь с курицей":180,"Греческий салат":100,"Селёдка под шубой":190,"Салат из свежих овощей с маслом":60,"Холодец":140,"Шарлотка с яблоками":220,"Пирожки с капустой печёные":230,"Пирожки жареные с картошкой":250,"Бутерброд с колбасой":250,"Бутерброд с сыром":280,"Гренки":300,"Какао на молоке":70,"Компот":40}; 
+const $=id=>document.getElementById(id);
+const today=()=>new Date().toLocaleDateString('sv');
+let S={norm:1800,custom:{},days:{}};
+try{const r=localStorage.getItem('calc_v1');if(r){const p=JSON.parse(r);if(p&&typeof p==='object')S=Object.assign(S,p)}}catch(e){}
+function save(){try{localStorage.setItem('calc_v1',JSON.stringify(S))}catch(e){}}
+const all=()=>Object.assign({},FOODS,S.custom);
+const log=()=>S.days[today()]||(S.days[today()]=[]);
+const find=n=>{n=n.trim().toLowerCase();for(const k in all())if(k.toLowerCase()===n)return all()[k];return null};
+const fmt=n=>Math.round(n).toLocaleString('ru-RU');
+
+function render(){
+  $('date').textContent=new Date().toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+  const items=log(),total=items.reduce((s,i)=>s+i.k,0),norm=S.norm||2000;
+  $('eaten').textContent=fmt(total);
+  const left=norm-total;
+  $('left').textContent=left>=0?'Осталось '+fmt(left)+' ккал':'Превышение на '+fmt(-left)+' ккал';
+  const arc=$('arc'),pct=Math.min(total/norm,1);
+  arc.style.strokeDashoffset=314.16*(1-pct);
+  arc.style.stroke=left<0?'var(--warn)':'var(--accent)';
+  $('norm').value=norm;
+  $('foods').innerHTML=Object.keys(all()).map(k=>'<option value="'+k.replace(/"/g,'&quot;')+'">').join('');
+  const L=$('list');L.innerHTML='';
+  if(!items.length){L.innerHTML='<div class="empty">Пока ничего не добавлено</div>';return}
+  items.forEach((it,idx)=>{
+    const d=document.createElement('div');d.className='item';
+    const n=document.createElement('div');n.className='n';
+    const a=document.createElement('div');a.textContent=it.n;
+    const b=document.createElement('div');b.className='sub';b.textContent=fmt(it.g)+' г · '+fmt(it.c)+' ккал/100 г';
+    n.append(a,b);
+    const k=document.createElement('div');k.className='k';k.textContent=fmt(it.k)+' ккал';
+    const x=document.createElement('button');x.className='del';x.textContent='×';x.setAttribute('aria-label','Удалить');
+    x.onclick=()=>{items.splice(idx,1);save();render()};
+    d.append(n,k,x);L.append(d);
+  });
+}
+function preview(){
+  const g=parseFloat($('grams').value),c=parseFloat($('k100').value);
+  $('preview').innerHTML=(g>0&&c>=0)?'Будет добавлено: <b>'+fmt(g*c/100)+' ккал</b>':'';
+}
+$('food').addEventListener('input',()=>{const v=find($('food').value);if(v!==null)$('k100').value=v;preview()});
+$('grams').addEventListener('input',preview);
+$('k100').addEventListener('input',preview);
+$('norm').addEventListener('change',()=>{const v=parseFloat($('norm').value);if(v>0){S.norm=v;save();render()}});
+$('add').onclick=()=>{
+  const name=$('food').value.trim(),g=parseFloat($('grams').value),c=parseFloat($('k100').value);
+  if(!name){$('err').textContent='Введите название продукта';return}
+  if(!(g>0)){$('err').textContent='Укажите массу в граммах';return}
+  if(!(c>=0)){$('err').textContent='Укажите калорийность на 100 г — продукта нет в списке';return}
+  $('err').textContent='';
+  if(find(name)===null)S.custom[name]=c;
+  log().push({n:name,g:g,c:c,k:g*c/100});
+  save();
+  $('food').value='';$('grams').value='';$('k100').value='';$('preview').innerHTML='';
+  render();$('food').focus();
+};
+$('clear').onclick=()=>{if(log().length&&confirm('Очистить записи за сегодня?')){S.days[today()]=[];save();render()}};
+['food','grams','k100'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')$('add').click()}));
+render();
+</script>
+</body>
+</html>
